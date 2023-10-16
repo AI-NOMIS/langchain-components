@@ -1,0 +1,14 @@
+node_modules
+dist
+.aws-sam
+coverage
+apidoc
+docker
+.env
+.env.*
+.DS_Store
+apidoc.json
+.vscode
+*.DS_Store
+*.png
+*.svg
