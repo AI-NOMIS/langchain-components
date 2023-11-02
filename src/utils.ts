@@ -1,18 +1,32 @@
 //@ts-nocheck
 
-import axios from 'axios';
-import { load } from 'cheerio';
-import * as fs from 'fs';
-import * as path from 'path';
-import { JSDOM } from 'jsdom';
-import { DataSource } from 'typeorm';
-import { ICommonObject, IDatabaseEntity, IMessage, INodeData } from './Interface';
-import { AES, enc } from 'crypto-js';
-import { ChatMessageHistory } from 'langchain/memory';
-import { AIMessage, HumanMessage } from 'langchain/schema';
+import axios from "axios";
+import { load } from "cheerio";
+import * as fs from "fs";
+import * as path from "path";
+import { JSDOM } from "jsdom";
+import { DataSource } from "typeorm";
+import {
+  ICommonObject,
+  IDatabaseEntity,
+  IMessage,
+  INodeData,
+} from "./Interface";
+import { AES, enc } from "crypto-js";
+import { ChatMessageHistory } from "langchain/memory";
+import { AIMessage, HumanMessage } from "langchain/schema";
 
-export const numberOrExpressionRegex = '^(\\d+\\.?\\d*|{{.*}})$'; //return true if string consists only numbers OR expression {{}}
-export const notEmptyRegex = '(.|\\s)*\\S(.|\\s)*'; //return true if string is not empty or blank
+export const numberOrExpressionRegex = "^(\\d+\\.?\\d*|{{.*}})$"; //return true if string consists only numbers OR expression {{}}
+export const notEmptyRegex = "(.|\\s)*\\S(.|\\s)*"; //return true if string is not empty or blank
+
+export const fetchFileFromUrl = async (url: string, mimeType: string) => {
+  const filename = url.split("/").at(-1);
+  const res = await fetch(url);
+  const arrayBuffer = await res.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const base64 = buffer.toString("base64");
+  return `data:${mimeType};base64,${base64},filename:${filename}`;
+};
 
 /**
  * Get base classes of components
@@ -23,7 +37,7 @@ export const notEmptyRegex = '(.|\\s)*\\S(.|\\s)*'; //return true if string is n
  */
 export const getBaseClasses = (targetClass: any) => {
   const baseClasses: string[] = [];
-  const skipClassNames = ['BaseLangChain', 'Serializable'];
+  const skipClassNames = ["BaseLangChain", "Serializable"];
 
   if (targetClass instanceof Function) {
     let baseClass = targetClass;
@@ -32,7 +46,8 @@ export const getBaseClasses = (targetClass: any) => {
       const newBaseClass = Object.getPrototypeOf(baseClass);
       if (newBaseClass && newBaseClass !== Object && newBaseClass.name) {
         baseClass = newBaseClass;
-        if (!skipClassNames.includes(baseClass.name)) baseClasses.push(baseClass.name);
+        if (!skipClassNames.includes(baseClass.name))
+          baseClasses.push(baseClass.name);
       } else {
         break;
       }
@@ -54,30 +69,32 @@ export function serializeQueryParams(params: any, skipIndex?: boolean): string {
 
   const encode = (val: string) => {
     return encodeURIComponent(val)
-      .replace(/%3A/gi, ':')
-      .replace(/%24/g, '$')
-      .replace(/%2C/gi, ',')
-      .replace(/%20/g, '+')
-      .replace(/%5B/gi, '[')
-      .replace(/%5D/gi, ']');
+      .replace(/%3A/gi, ":")
+      .replace(/%24/g, "$")
+      .replace(/%2C/gi, ",")
+      .replace(/%20/g, "+")
+      .replace(/%5B/gi, "[")
+      .replace(/%5D/gi, "]");
   };
 
   const convertPart = (key: string, val: any) => {
     if (val instanceof Date) val = val.toISOString();
     else if (val instanceof Object) val = JSON.stringify(val);
 
-    parts.push(encode(key) + '=' + encode(val));
+    parts.push(encode(key) + "=" + encode(val));
   };
 
   Object.entries(params).forEach(([key, val]) => {
-    if (val === null || typeof val === 'undefined') return;
+    if (val === null || typeof val === "undefined") return;
 
     if (Array.isArray(val))
-      val.forEach((v, i) => convertPart(`${key}${skipIndex ? '' : `[${i}]`}`, v));
+      val.forEach((v, i) =>
+        convertPart(`${key}${skipIndex ? "" : `[${i}]`}`, v)
+      );
     else convertPart(key, val);
   });
 
-  return parts.join('&');
+  return parts.join("&");
 }
 
 /**
@@ -88,24 +105,27 @@ export function serializeQueryParams(params: any, skipIndex?: boolean): string {
  * @returns {string}
  */
 export function handleErrorMessage(error: any): string {
-  let errorMessage = '';
+  let errorMessage = "";
 
   if (error.message) {
-    errorMessage += error.message + '. ';
+    errorMessage += error.message + ". ";
   }
 
   if (error.response && error.response.data) {
     if (error.response.data.error) {
-      if (typeof error.response.data.error === 'object')
-        errorMessage += JSON.stringify(error.response.data.error) + '. ';
-      else if (typeof error.response.data.error === 'string')
-        errorMessage += error.response.data.error + '. ';
-    } else if (error.response.data.msg) errorMessage += error.response.data.msg + '. ';
-    else if (error.response.data.Message) errorMessage += error.response.data.Message + '. ';
-    else if (typeof error.response.data === 'string') errorMessage += error.response.data + '. ';
+      if (typeof error.response.data.error === "object")
+        errorMessage += JSON.stringify(error.response.data.error) + ". ";
+      else if (typeof error.response.data.error === "string")
+        errorMessage += error.response.data.error + ". ";
+    } else if (error.response.data.msg)
+      errorMessage += error.response.data.msg + ". ";
+    else if (error.response.data.Message)
+      errorMessage += error.response.data.Message + ". ";
+    else if (typeof error.response.data === "string")
+      errorMessage += error.response.data + ". ";
   }
 
-  if (!errorMessage) errorMessage = 'Unexpected Error.';
+  if (!errorMessage) errorMessage = "Unexpected Error.";
 
   return errorMessage;
 }
@@ -117,18 +137,27 @@ export function handleErrorMessage(error: any): string {
  */
 export const getNodeModulesPackagePath = (packageName: string): string => {
   const checkPaths = [
-    path.join(__dirname, '..', 'node_modules', packageName),
-    path.join(__dirname, '..', '..', 'node_modules', packageName),
-    path.join(__dirname, '..', '..', '..', 'node_modules', packageName),
-    path.join(__dirname, '..', '..', '..', '..', 'node_modules', packageName),
-    path.join(__dirname, '..', '..', '..', '..', '..', 'node_modules', packageName),
+    path.join(__dirname, "..", "node_modules", packageName),
+    path.join(__dirname, "..", "..", "node_modules", packageName),
+    path.join(__dirname, "..", "..", "..", "node_modules", packageName),
+    path.join(__dirname, "..", "..", "..", "..", "node_modules", packageName),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "node_modules",
+      packageName
+    ),
   ];
   for (const checkPath of checkPaths) {
     if (fs.existsSync(checkPath)) {
       return checkPath;
     }
   }
-  return '';
+  return "";
 };
 
 /**
@@ -147,19 +176,22 @@ export const getInputVariables = (paramValue: string): string[] => {
     const substr = returnVal.substring(startIdx, startIdx + 1);
 
     // Store the opening double curly bracket
-    if (substr === '{') {
+    if (substr === "{") {
       variableStack.push({ substr, startIdx: startIdx + 1 });
     }
 
     // Found the complete variable
     if (
-      substr === '}' &&
+      substr === "}" &&
       variableStack.length > 0 &&
-      variableStack[variableStack.length - 1].substr === '{'
+      variableStack[variableStack.length - 1].substr === "{"
     ) {
       const variableStartIdx = variableStack[variableStack.length - 1].startIdx;
       const variableEndIdx = startIdx;
-      const variableFullPath = returnVal.substring(variableStartIdx, variableEndIdx);
+      const variableFullPath = returnVal.substring(
+        variableStartIdx,
+        variableEndIdx
+      );
       inputVariables.push(variableFullPath);
       variableStack.pop();
     }
@@ -197,7 +229,7 @@ export const getAvailableURLs = async (url: string, limit: number) => {
       console.info(`index: ${i}`);
       const element = relativeLinks[i];
 
-      const relativeUrl = $(element).attr('href');
+      const relativeUrl = $(element).attr("href");
       if (!relativeUrl) continue;
 
       const absoluteUrl = new URL(relativeUrl, url).toString();
@@ -221,15 +253,16 @@ export const getAvailableURLs = async (url: string, limit: number) => {
  */
 function getURLsFromHTML(htmlBody: string, baseURL: string): string[] {
   const dom = new JSDOM(htmlBody);
-  const linkElements = dom.window.document.querySelectorAll('a');
+  const linkElements = dom.window.document.querySelectorAll("a");
   const urls: string[] = [];
   for (const linkElement of linkElements) {
-    if (linkElement.href.slice(0, 1) === '/') {
+    if (linkElement.href.slice(0, 1) === "/") {
       try {
         const urlObj = new URL(baseURL + linkElement.href);
         urls.push(urlObj.href); //relative
       } catch (err) {
-        if (process.env.DEBUG === 'true') console.error(`error with relative url: ${err.message}`);
+        if (process.env.DEBUG === "true")
+          console.error(`error with relative url: ${err.message}`);
         continue;
       }
     } else {
@@ -237,7 +270,8 @@ function getURLsFromHTML(htmlBody: string, baseURL: string): string[] {
         const urlObj = new URL(linkElement.href);
         urls.push(urlObj.href); //absolute
       } catch (err) {
-        if (process.env.DEBUG === 'true') console.error(`error with absolute url: ${err.message}`);
+        if (process.env.DEBUG === "true")
+          console.error(`error with absolute url: ${err.message}`);
         continue;
       }
     }
@@ -253,7 +287,7 @@ function getURLsFromHTML(htmlBody: string, baseURL: string): string[] {
 function normalizeURL(urlString: string): string {
   const urlObj = new URL(urlString);
   const hostPath = urlObj.hostname + urlObj.pathname;
-  if (hostPath.length > 0 && hostPath.slice(-1) == '/') {
+  if (hostPath.length > 0 && hostPath.slice(-1) == "/") {
     // handling trailing slash
     return hostPath.slice(0, -1);
   }
@@ -281,27 +315,33 @@ async function crawl(
 
   if (baseURLObj.hostname !== currentURLObj.hostname) return pages;
 
-  const normalizeCurrentURL = baseURLObj.protocol + '//' + normalizeURL(currentURL);
+  const normalizeCurrentURL =
+    baseURLObj.protocol + "//" + normalizeURL(currentURL);
   if (pages.includes(normalizeCurrentURL)) {
     return pages;
   }
 
   pages.push(normalizeCurrentURL);
 
-  if (process.env.DEBUG === 'true') console.info(`actively crawling ${currentURL}`);
+  if (process.env.DEBUG === "true")
+    console.info(`actively crawling ${currentURL}`);
   try {
     const resp = await fetch(currentURL);
 
     if (resp.status > 399) {
-      if (process.env.DEBUG === 'true')
-        console.error(`error in fetch with status code: ${resp.status}, on page: ${currentURL}`);
+      if (process.env.DEBUG === "true")
+        console.error(
+          `error in fetch with status code: ${resp.status}, on page: ${currentURL}`
+        );
       return pages;
     }
 
-    const contentType: string | null = resp.headers.get('content-type');
-    if ((contentType && !contentType.includes('text/html')) || !contentType) {
-      if (process.env.DEBUG === 'true')
-        console.error(`non html response, content type: ${contentType}, on page: ${currentURL}`);
+    const contentType: string | null = resp.headers.get("content-type");
+    if ((contentType && !contentType.includes("text/html")) || !contentType) {
+      if (process.env.DEBUG === "true")
+        console.error(
+          `non html response, content type: ${contentType}, on page: ${currentURL}`
+        );
       return pages;
     }
 
@@ -311,8 +351,10 @@ async function crawl(
       pages = await crawl(baseURL, nextURL, pages, limit);
     }
   } catch (err) {
-    if (process.env.DEBUG === 'true')
-      console.error(`error in fetch url: ${err.message}, on page: ${currentURL}`);
+    if (process.env.DEBUG === "true")
+      console.error(
+        `error in fetch url: ${err.message}, on page: ${currentURL}`
+      );
   }
   return pages;
 }
@@ -323,18 +365,27 @@ async function crawl(
  * @param {number} limit
  * @returns {Promise<string[]>}
  */
-export async function webCrawl(stringURL: string, limit: number): Promise<string[]> {
+export async function webCrawl(
+  stringURL: string,
+  limit: number
+): Promise<string[]> {
   const URLObj = new URL(stringURL);
-  const modifyURL = stringURL.slice(-1) === '/' ? stringURL.slice(0, -1) : stringURL;
-  return await crawl(URLObj.protocol + '//' + URLObj.hostname, modifyURL, [], limit);
+  const modifyURL =
+    stringURL.slice(-1) === "/" ? stringURL.slice(0, -1) : stringURL;
+  return await crawl(
+    URLObj.protocol + "//" + URLObj.hostname,
+    modifyURL,
+    [],
+    limit
+  );
 }
 
 export function getURLsFromXML(xmlBody: string, limit: number): string[] {
-  const dom = new JSDOM(xmlBody, { contentType: 'text/xml' });
-  const linkElements = dom.window.document.querySelectorAll('url');
+  const dom = new JSDOM(xmlBody, { contentType: "text/xml" });
+  const linkElements = dom.window.document.querySelectorAll("url");
   const urls: string[] = [];
   for (const linkElement of linkElements) {
-    const locElement = linkElement.querySelector('loc');
+    const locElement = linkElement.querySelector("loc");
     if (limit !== 0 && urls.length === limit) break;
     if (locElement?.textContent) {
       urls.push(locElement.textContent);
@@ -343,35 +394,45 @@ export function getURLsFromXML(xmlBody: string, limit: number): string[] {
   return urls;
 }
 
-export async function xmlScrape(currentURL: string, limit: number): Promise<string[]> {
+export async function xmlScrape(
+  currentURL: string,
+  limit: number
+): Promise<string[]> {
   let urls: string[] = [];
-  if (process.env.DEBUG === 'true') console.info(`actively scarping ${currentURL}`);
+  if (process.env.DEBUG === "true")
+    console.info(`actively scarping ${currentURL}`);
   try {
     const resp = await fetch(currentURL);
 
     if (resp.status > 399) {
-      if (process.env.DEBUG === 'true')
-        console.error(`error in fetch with status code: ${resp.status}, on page: ${currentURL}`);
+      if (process.env.DEBUG === "true")
+        console.error(
+          `error in fetch with status code: ${resp.status}, on page: ${currentURL}`
+        );
       return urls;
     }
 
-    const contentType: string | null = resp.headers.get('content-type');
+    const contentType: string | null = resp.headers.get("content-type");
     if (
       (contentType &&
-        !contentType.includes('application/xml') &&
-        !contentType.includes('text/xml')) ||
+        !contentType.includes("application/xml") &&
+        !contentType.includes("text/xml")) ||
       !contentType
     ) {
-      if (process.env.DEBUG === 'true')
-        console.error(`non xml response, content type: ${contentType}, on page: ${currentURL}`);
+      if (process.env.DEBUG === "true")
+        console.error(
+          `non xml response, content type: ${contentType}, on page: ${currentURL}`
+        );
       return urls;
     }
 
     const xmlBody = await resp.text();
     urls = getURLsFromXML(xmlBody, limit);
   } catch (err) {
-    if (process.env.DEBUG === 'true')
-      console.error(`error in fetch url: ${err.message}, on page: ${currentURL}`);
+    if (process.env.DEBUG === "true")
+      console.error(
+        `error in fetch url: ${err.message}, on page: ${currentURL}`
+      );
   }
   return urls;
 }
@@ -383,7 +444,7 @@ export async function xmlScrape(currentURL: string, limit: number): Promise<stri
  */
 export const getEnvironmentVariable = (name: string): string | undefined => {
   try {
-    return typeof process !== 'undefined' ? process.env?.[name] : undefined;
+    return typeof process !== "undefined" ? process.env?.[name] : undefined;
   } catch (e) {
     return undefined;
   }
@@ -395,26 +456,35 @@ export const getEnvironmentVariable = (name: string): string | undefined => {
  */
 const getEncryptionKeyFilePath = (): string => {
   const checkPaths = [
-    path.join(__dirname, '..', '..', 'encryption.key'),
-    path.join(__dirname, '..', '..', 'server', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', 'server', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', '..', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', '..', 'server', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', '..', '..', 'encryption.key'),
-    path.join(__dirname, '..', '..', '..', '..', '..', 'server', 'encryption.key'),
+    path.join(__dirname, "..", "..", "encryption.key"),
+    path.join(__dirname, "..", "..", "server", "encryption.key"),
+    path.join(__dirname, "..", "..", "..", "encryption.key"),
+    path.join(__dirname, "..", "..", "..", "server", "encryption.key"),
+    path.join(__dirname, "..", "..", "..", "..", "encryption.key"),
+    path.join(__dirname, "..", "..", "..", "..", "server", "encryption.key"),
+    path.join(__dirname, "..", "..", "..", "..", "..", "encryption.key"),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "..",
+      "..",
+      "server",
+      "encryption.key"
+    ),
   ];
   for (const checkPath of checkPaths) {
     if (fs.existsSync(checkPath)) {
       return checkPath;
     }
   }
-  return '';
+  return "";
 };
 
 const getEncryptionKeyPath = (): string => {
   return process.env.SECRETKEY_PATH
-    ? path.join(process.env.SECRETKEY_PATH, 'encryption.key')
+    ? path.join(process.env.SECRETKEY_PATH, "encryption.key")
     : getEncryptionKeyFilePath();
 };
 
@@ -425,12 +495,12 @@ const getEncryptionKeyPath = (): string => {
 const getEncryptionKey = async (): Promise<string> => {
   if (
     process.env.FLOWISE_SECRETKEY_OVERWRITE !== undefined &&
-    process.env.FLOWISE_SECRETKEY_OVERWRITE !== ''
+    process.env.FLOWISE_SECRETKEY_OVERWRITE !== ""
   ) {
     return process.env.FLOWISE_SECRETKEY_OVERWRITE;
   }
   try {
-    return await fs.promises.readFile(getEncryptionKeyPath(), 'utf8');
+    return await fs.promises.readFile(getEncryptionKeyPath(), "utf8");
   } catch (error) {
     throw new Error(error);
   }
@@ -443,14 +513,16 @@ const getEncryptionKey = async (): Promise<string> => {
  * @param {IComponentCredentials} componentCredentials
  * @returns {Promise<ICommonObject>}
  */
-const decryptCredentialData = async (encryptedData: string): Promise<ICommonObject> => {
+const decryptCredentialData = async (
+  encryptedData: string
+): Promise<ICommonObject> => {
   const encryptKey = await getEncryptionKey();
   const decryptedData = AES.decrypt(encryptedData, encryptKey);
   try {
     return JSON.parse(decryptedData.toString(enc.Utf8));
   } catch (e) {
     console.error(e);
-    throw new Error('Credentials could not be decrypted.');
+    throw new Error("Credentials could not be decrypted.");
   }
 };
 
@@ -472,14 +544,18 @@ export const getCredentialData = async (
       return {};
     }
 
-    const credential = await appDataSource.getRepository(databaseEntities['Credential']).findOneBy({
-      id: selectedCredentialId,
-    });
+    const credential = await appDataSource
+      .getRepository(databaseEntities["Credential"])
+      .findOneBy({
+        id: selectedCredentialId,
+      });
 
     if (!credential) return {};
 
     // Decrpyt credentialData
-    const decryptedCredentialData = await decryptCredentialData(credential.encryptedData);
+    const decryptedCredentialData = await decryptCredentialData(
+      credential.encryptedData
+    );
 
     return decryptedCredentialData;
   } catch (e) {
@@ -492,18 +568,22 @@ export const getCredentialParam = (
   credentialData: ICommonObject,
   nodeData: INodeData
 ): any => {
-  return (nodeData.inputs as ICommonObject)[paramName] ?? credentialData[paramName] ?? undefined;
+  return (
+    (nodeData.inputs as ICommonObject)[paramName] ??
+    credentialData[paramName] ??
+    undefined
+  );
 };
 
 // reference https://www.freeformatter.com/json-escape.html
 const jsonEscapeCharacters = [
-  { escape: '"', value: 'FLOWISE_DOUBLE_QUOTE' },
-  { escape: '\n', value: 'FLOWISE_NEWLINE' },
-  { escape: '\b', value: 'FLOWISE_BACKSPACE' },
-  { escape: '\f', value: 'FLOWISE_FORM_FEED' },
-  { escape: '\r', value: 'FLOWISE_CARRIAGE_RETURN' },
-  { escape: '\t', value: 'FLOWISE_TAB' },
-  { escape: '\\', value: 'FLOWISE_BACKSLASH' },
+  { escape: '"', value: "FLOWISE_DOUBLE_QUOTE" },
+  { escape: "\n", value: "FLOWISE_NEWLINE" },
+  { escape: "\b", value: "FLOWISE_BACKSPACE" },
+  { escape: "\f", value: "FLOWISE_FORM_FEED" },
+  { escape: "\r", value: "FLOWISE_CARRIAGE_RETURN" },
+  { escape: "\t", value: "FLOWISE_TAB" },
+  { escape: "\\", value: "FLOWISE_BACKSLASH" },
 ];
 
 function handleEscapesJSONParse(input: string, reverse: Boolean): string {
@@ -518,16 +598,18 @@ function handleEscapesJSONParse(input: string, reverse: Boolean): string {
 function iterateEscapesJSONParse(input: any, reverse: Boolean): any {
   for (const element in input) {
     const type = typeof input[element];
-    if (type === 'string') input[element] = handleEscapesJSONParse(input[element], reverse);
-    else if (type === 'object') input[element] = iterateEscapesJSONParse(input[element], reverse);
+    if (type === "string")
+      input[element] = handleEscapesJSONParse(input[element], reverse);
+    else if (type === "object")
+      input[element] = iterateEscapesJSONParse(input[element], reverse);
   }
   return input;
 }
 
 export function handleEscapeCharacters(input: any, reverse: Boolean): any {
   const type = typeof input;
-  if (type === 'string') return handleEscapesJSONParse(input, reverse);
-  else if (type === 'object') return iterateEscapesJSONParse(input, reverse);
+  if (type === "string") return handleEscapesJSONParse(input, reverse);
+  else if (type === "object") return iterateEscapesJSONParse(input, reverse);
   return input;
 }
 
@@ -536,9 +618,9 @@ export function handleEscapeCharacters(input: any, reverse: Boolean): any {
  * @returns {string}
  */
 export const getUserHome = (): string => {
-  let variableName = 'HOME';
-  if (process.platform === 'win32') {
-    variableName = 'USERPROFILE';
+  let variableName = "HOME";
+  if (process.platform === "win32") {
+    variableName = "USERPROFILE";
   }
 
   if (process.env[variableName] === undefined) {
@@ -558,9 +640,9 @@ export const mapChatHistory = (options: ICommonObject): ChatMessageHistory => {
   const histories: IMessage[] = options.chatHistory ?? [];
 
   for (const message of histories) {
-    if (message.type === 'apiMessage') {
+    if (message.type === "apiMessage") {
       chatHistory.push(new AIMessage(message.message));
-    } else if (message.type === 'userMessage') {
+    } else if (message.type === "userMessage") {
       chatHistory.push(new HumanMessage(message.message));
     }
   }
@@ -575,13 +657,13 @@ export const mapChatHistory = (options: ICommonObject): ChatMessageHistory => {
 export const convertChatHistoryToText = (chatHistory: IMessage[]): string => {
   return chatHistory
     .map((chatMessage) => {
-      if (chatMessage.type === 'apiMessage') {
+      if (chatMessage.type === "apiMessage") {
         return `Assistant: ${chatMessage.message}`;
-      } else if (chatMessage.type === 'userMessage') {
+      } else if (chatMessage.type === "userMessage") {
         return `Human: ${chatMessage.message}`;
       } else {
         return `${chatMessage.message}`;
       }
     })
-    .join('\n');
+    .join("\n");
 };
