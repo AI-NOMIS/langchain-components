@@ -20,7 +20,7 @@ export const numberOrExpressionRegex = "^(\\d+\\.?\\d*|{{.*}})$"; //return true 
 export const notEmptyRegex = "(.|\\s)*\\S(.|\\s)*"; //return true if string is not empty or blank
 
 export const fetchFileFromUrl = async (url: string, mimeType: string) => {
-  const filename = url.split("/").at(-1);
+  const filename = url.split("/").at(-1)?.split("?")[0];
   const res = await fetch(url);
   const arrayBuffer = await res.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
