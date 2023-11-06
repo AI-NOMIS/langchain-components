@@ -2,7 +2,6 @@ import { INode, INodeData, INodeParams } from "../../../src/Interface";
 import { TextSplitter } from "langchain/text_splitter";
 import { CSVLoader } from "langchain/document_loaders/fs/csv";
 import { fetchFileFromUrl } from "../../../src/utils";
-require("net").setDefaultAutoSelectFamily(false);
 
 class Csv_DocumentLoaders implements INode {
   label: string;
