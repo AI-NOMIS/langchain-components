@@ -9,7 +9,7 @@ import { getBaseClasses } from "../../../src/utils";
 import { DynamicStructuredTool } from "./core";
 import { z } from "zod";
 // @ts-ignore
-import { dbClient } from "../../../../../../src/shared/client";
+// import { dbClient } from "../../../../../../src/shared/client";
 // Note: the above import refers to the nocodingai_backend repo's db instance. There is
 //       an additional ../ in the from string because this file will be compiled into
 //       the 'dist' folder that's one level deeper than this current file. Need to find
@@ -50,26 +50,26 @@ class CustomTool_Tools implements INode {
   }
 
   //@ts-ignore
-  loadMethods = {
-    async listTools(
-      _: INodeData,
-      options: ICommonObject
-    ): Promise<INodeOptionsValue[]> {
-      const returnData: INodeOptionsValue[] = [];
+  // loadMethods = {
+  //   async listTools(
+  //     _: INodeData,
+  //     options: ICommonObject
+  //   ): Promise<INodeOptionsValue[]> {
+  //     const returnData: INodeOptionsValue[] = [];
 
-      const tools = await dbClient.chatTool.findMany();
+  //     const tools = await dbClient.chatTool.findMany();
 
-      for (let i = 0; i < tools.length; i += 1) {
-        const data = {
-          label: tools[i].name,
-          name: tools[i].id,
-          description: tools[i].description,
-        } as INodeOptionsValue;
-        returnData.push(data);
-      }
-      return returnData;
-    },
-  };
+  //     for (let i = 0; i < tools.length; i += 1) {
+  //       const data = {
+  //         label: tools[i].name,
+  //         name: tools[i].id,
+  //         description: tools[i].description,
+  //       } as INodeOptionsValue;
+  //       returnData.push(data);
+  //     }
+  //     return returnData;
+  //   },
+  // };
 
   async init(
     nodeData: INodeData,
@@ -80,11 +80,12 @@ class CustomTool_Tools implements INode {
     const customToolFunc = nodeData.inputs?.customToolFunc as string;
 
     try {
-      const tool = await dbClient.chatTool.findUnique({
-        where: {
-          id: selectedToolId,
-        },
-      });
+      const tool = options.tool;
+      // await dbClient.chatTool.findUnique({
+      //   where: {
+      //     id: selectedToolId,
+      //   },
+      // });
 
       if (tool == null) throw new Error(`Tool ${selectedToolId} not found`);
       if (tool.schema == null)
