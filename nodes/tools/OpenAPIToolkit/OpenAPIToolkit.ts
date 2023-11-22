@@ -64,11 +64,10 @@ class OpenAPIToolkit_Tools implements INode {
     const yamlFileBase64 = nodeData.inputs?.yamlFile as string;
 
     const credentialData = options.credentialData;
-    const openAPIToken = getCredentialParam(
-      "openAPIToken",
-      credentialData,
-      nodeData
-    );
+    const openAPIToken =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("openAPIToken", credentialData, nodeData);
 
     const splitDataURI = yamlFileBase64.split(",");
     splitDataURI.pop();

@@ -160,11 +160,10 @@ class OpenAI_LLMs implements INode {
     const baseOptions = nodeData.inputs?.baseOptions;
 
     const credentialData = options.credentialData;
-    const openAIApiKey = getCredentialParam(
-      "openAIApiKey",
-      credentialData,
-      nodeData
-    );
+    const openAIApiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("openAIApiKey", credentialData, nodeData);
     const obj: Partial<OpenAIInput> & { openAIApiKey?: string } = {
       temperature: parseFloat(temperature),
       modelName,

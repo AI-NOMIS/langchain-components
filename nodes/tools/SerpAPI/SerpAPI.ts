@@ -4,7 +4,7 @@ import {
   INodeData,
   INodeParams,
 } from "../../../src/Interface";
-import { getBaseClasses } from "../../../src/utils";
+import { getBaseClasses, getCredentialParam } from "../../../src/utils";
 import { SerpAPI } from "langchain/tools";
 
 class SerpAPI_Tools implements INode {
@@ -43,7 +43,11 @@ class SerpAPI_Tools implements INode {
     _: string,
     options: ICommonObject
   ): Promise<any> {
-    const serpApiKey = options.apiKey;
+    const credentialData = options.credentialData;
+    const serpApiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("serpApiKey", credentialData, nodeData);
     return new SerpAPI(serpApiKey);
   }
 }

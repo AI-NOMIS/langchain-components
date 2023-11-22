@@ -163,11 +163,10 @@ class ChatOpenAI_ChatModels implements INode {
     const baseOptions = nodeData.inputs?.baseOptions;
 
     const credentialData = options.credentialData;
-    const openAIApiKey = getCredentialParam(
-      "openAIApiKey",
-      credentialData,
-      nodeData
-    );
+    const openAIApiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("openAIApiKey", credentialData, nodeData);
     const obj: Partial<OpenAIChatInput> & { openAIApiKey?: string } = {
       temperature: parseFloat(temperature),
       modelName,

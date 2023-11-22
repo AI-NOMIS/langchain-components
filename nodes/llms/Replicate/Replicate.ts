@@ -116,11 +116,10 @@ class Replicate_LLMs implements INode {
     const additionalInputs = nodeData.inputs?.additionalInputs as string;
 
     const credentialData = options.credentialData;
-    const apiKey = getCredentialParam(
-      "replicateApiKey",
-      credentialData,
-      nodeData
-    );
+    const apiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("replicateApiKey", credentialData, nodeData);
 
     const version = modelName.split(":").pop();
     const name = modelName.split(":")[0].split("/").pop();

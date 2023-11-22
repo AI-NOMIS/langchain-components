@@ -84,11 +84,10 @@ class OpenAIEmbedding_Embeddings implements INode {
     const basePath = nodeData.inputs?.basepath as string;
 
     const credentialData = options.credentialData;
-    const openAIApiKey = getCredentialParam(
-      "openAIApiKey",
-      credentialData,
-      nodeData
-    );
+    const openAIApiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("openAIApiKey", credentialData, nodeData);
 
     const obj: Partial<OpenAIEmbeddingsParams> & { openAIApiKey?: string } = {
       openAIApiKey,

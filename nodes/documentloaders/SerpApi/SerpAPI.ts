@@ -6,6 +6,7 @@ import {
 } from "../../../src/Interface";
 import { TextSplitter } from "langchain/text_splitter";
 import { SerpAPILoader } from "langchain/document_loaders/web/serpapi";
+import { getCredentialParam } from "../../../src/utils";
 
 class SerpAPI_DocumentLoaders implements INode {
   label: string;
@@ -66,7 +67,11 @@ class SerpAPI_DocumentLoaders implements INode {
     const query = nodeData.inputs?.query as string;
     const metadata = nodeData.inputs?.metadata;
 
-    const serpApiKey = options.apiKey;
+    const credentialData = options.credentialData;
+    const serpApiKey =
+      credentialData == null
+        ? options.apiKey
+        : getCredentialParam("serpApiKey", credentialData, nodeData);
     const loader = new SerpAPILoader({ q: query, apiKey: serpApiKey });
     const docs = textSplitter
       ? await loader.loadAndSplit()
