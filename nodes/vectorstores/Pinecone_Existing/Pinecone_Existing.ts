@@ -114,11 +114,10 @@ class Pinecone_Existing_VectorStores implements INode {
       credentialData == null
         ? options.apiKey
         : getCredentialParam("pineconeApiKey", credentialData, nodeData);
-    const pineconeEnv = getCredentialParam(
-      "pineconeEnv",
-      credentialData,
-      nodeData
-    );
+    const pineconeEnv =
+      credentialData == null
+        ? undefined
+        : getCredentialParam("pineconeEnv", credentialData, nodeData);
 
     const client = new PineconeClient();
     await client.init({
