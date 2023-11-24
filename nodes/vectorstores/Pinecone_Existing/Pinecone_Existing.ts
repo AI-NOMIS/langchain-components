@@ -11,11 +11,7 @@ import {
   PineconeStore,
 } from "langchain/vectorstores/pinecone";
 import { Embeddings } from "langchain/embeddings/base";
-import {
-  getBaseClasses,
-  getCredentialData,
-  getCredentialParam,
-} from "../../../src/utils";
+import { getBaseClasses, getCredentialParam } from "../../../src/utils";
 
 class Pinecone_Existing_VectorStores implements INode {
   label: string;
@@ -116,7 +112,7 @@ class Pinecone_Existing_VectorStores implements INode {
         : getCredentialParam("pineconeApiKey", credentialData, nodeData);
     const pineconeEnv =
       credentialData == null
-        ? undefined
+        ? options.pineconeEnv
         : getCredentialParam("pineconeEnv", credentialData, nodeData);
 
     const client = new PineconeClient();
